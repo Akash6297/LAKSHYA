@@ -1,0 +1,15 @@
+# Minimal Supabase CLI config. Run `npx supabase link --project-ref <ref>` first.
+project_id = "lakshya"
+
+[functions.dispatch-reminders]
+# Authenticated with the CRON_SECRET header instead of a user JWT.
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.notify-test]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.delete-account]
+verify_jwt = true
+import_map = "./functions/deno.json"

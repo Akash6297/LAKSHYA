@@ -1,0 +1,15 @@
+node_modules
+dist
+dev-dist
+coverage
+*.local
+.env
+.env.*
+!.env.example
+supabase/.temp
+supabase/.branches
+supabase/functions/.env
+.vercel
+e2e/screenshots
+.DS_Store
+*.log

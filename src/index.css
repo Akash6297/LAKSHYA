@@ -1,0 +1,219 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   LAKSHYA design tokens
+   Semantic colors are CSS variables so light/dark swap without class churn.
+--------------------------------------------------------------------------- */
+:root {
+  --bg: #faf8f5;
+  --bg-grad: radial-gradient(1200px 600px at 100% -10%, rgb(99 102 241 / 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgb(236 72 153 / 0.04), transparent 60%);
+  --surface: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #ebe8e2;
+  --line: #e8e4dc;
+  --line-strong: #d6d1c7;
+  --fg: #171a2b;
+  --muted: #646a7e;
+  --subtle: #8d92a3;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-fg: #ffffff;
+  --primary-soft: #eef0ff;
+  --primary-soft-fg: #3730a3;
+  --success: #059669;
+  --success-soft: #e7f7f0;
+  --warning: #b45309;
+  --warning-soft: #fdf3e2;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --ring: rgb(79 70 229 / 0.35);
+  --shadow-sm: 0 1px 2px rgb(23 26 43 / 0.05);
+  --shadow: 0 1px 2px rgb(23 26 43 / 0.04), 0 4px 16px -4px rgb(23 26 43 / 0.08);
+  --shadow-lg: 0 12px 40px -8px rgb(23 26 43 / 0.18);
+  /* chart palette: validated categorical order (dataviz reference instance) */
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #898781;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b1020;
+  --bg-grad: radial-gradient(1200px 600px at 100% -10%, rgb(109 106 240 / 0.14), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgb(56 189 248 / 0.06), transparent 60%);
+  --surface: #121933;
+  --surface-2: #18203d;
+  --surface-3: #212a4b;
+  --line: #242d50;
+  --line-strong: #323c63;
+  --fg: #e8eaf4;
+  --muted: #9aa1bd;
+  --subtle: #6f7799;
+  --primary: #7c78f5;
+  --primary-hover: #8f8cf8;
+  --primary-fg: #0b1020;
+  --primary-soft: rgb(124 120 245 / 0.14);
+  --primary-soft-fg: #c4c2ff;
+  --success: #34d399;
+  --success-soft: rgb(52 211 153 / 0.12);
+  --warning: #fbbf24;
+  --warning-soft: rgb(251 191 36 / 0.12);
+  --danger: #f87171;
+  --danger-soft: rgb(248 113 113 / 0.12);
+  --ring: rgb(124 120 245 / 0.45);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.25), 0 6px 20px -6px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 48px -8px rgb(0 0 0 / 0.6);
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+  --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+  --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #3987e5; --seq-5: #6da7ec; --seq-6: #b7d3f6;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #898781;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-deva: 'Noto Sans Devanagari', 'Nirmala UI', 'Mangal', sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ring: var(--ring);
+
+  --shadow-card: var(--shadow);
+  --shadow-soft: var(--shadow-sm);
+  --shadow-pop: var(--shadow-lg);
+
+  --radius-card: 1rem;
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-slide-up: slide-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-scale-in: scale-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.4s linear infinite;
+}
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.97) } to { opacity: 1; transform: none } }
+@keyframes shimmer { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    background-image: var(--bg-grad);
+    background-attachment: fixed;
+    font-feature-settings: 'cv11', 'ss01';
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--primary-soft); }
+  /* grid items default to min-width:auto and can push past the viewport on phones */
+  .grid > * { min-width: 0; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+  input, textarea, select, button { font: inherit; }
+  /* iOS zooms inputs below 16px */
+  @media (max-width: 640px) {
+    input, textarea, select { font-size: 16px !important; }
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  .card { @apply rounded-card border border-line bg-surface shadow-card; }
+  .label { @apply mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase; }
+  .field {
+    @apply w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-fg shadow-soft
+      placeholder:text-subtle transition outline-none
+      focus:border-primary focus:ring-4 focus:ring-ring disabled:opacity-60;
+  }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold; }
+  .skeleton {
+    @apply rounded-lg animate-shimmer;
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+  }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
+
+.boot-splash { display: grid; place-items: center; min-height: 100vh; }
+
+/* ---------------------------------------------------------------------------
+   FullCalendar theme bridge
+--------------------------------------------------------------------------- */
+.fc {
+  --fc-border-color: var(--line);
+  --fc-page-bg-color: var(--surface);
+  --fc-neutral-bg-color: var(--surface-2);
+  --fc-list-event-hover-bg-color: var(--surface-2);
+  --fc-today-bg-color: var(--primary-soft);
+  --fc-now-indicator-color: var(--danger);
+  --fc-event-border-color: transparent;
+  --fc-highlight-color: var(--primary-soft);
+  font-size: 0.8125rem;
+}
+.fc .fc-toolbar { display: none; }
+.fc .fc-col-header-cell-cushion, .fc .fc-daygrid-day-number, .fc .fc-list-day-text, .fc .fc-list-day-side-text {
+  color: var(--muted); font-weight: 600; text-decoration: none;
+}
+.fc .fc-timegrid-slot-label-cushion { color: var(--subtle); font-size: 0.72rem; }
+.fc .fc-timegrid-slot { height: 2.6em; }
+.fc .fc-event { border-radius: 8px; padding: 1px 3px; font-weight: 600; box-shadow: var(--shadow-sm); cursor: pointer; }
+.fc .fc-event.lk-done { opacity: 0.55; text-decoration: line-through; }
+.fc .fc-event.lk-task { border-left: 3px solid rgb(255 255 255 / 0.7) !important; }
+.fc .fc-daygrid-event-dot { border-color: currentColor; }
+.fc-theme-standard .fc-scrollgrid { border-radius: 12px; overflow: hidden; }
+.fc .fc-multimonth { border: none; }
+.fc .fc-multimonth-title { color: var(--fg); font-size: 0.95rem; }
+.fc .fc-list { border-radius: 12px; overflow: hidden; }
+.fc .fc-list-event-title a { color: var(--fg); }
+.fc .fc-list-empty { background: var(--surface); color: var(--muted); }
+
+/* ---------------------------------------------------------------------------
+   Rich text (notes)
+--------------------------------------------------------------------------- */
+.prose-lk { line-height: 1.7; font-size: 0.95rem; }
+.prose-lk:focus { outline: none; }
+.prose-lk h1 { font-size: 1.5rem; font-weight: 800; margin: 1rem 0 0.5rem; }
+.prose-lk h2 { font-size: 1.2rem; font-weight: 700; margin: 1rem 0 0.4rem; }
+.prose-lk h3 { font-size: 1.05rem; font-weight: 700; margin: 0.8rem 0 0.3rem; }
+.prose-lk p { margin: 0.4rem 0; }
+.prose-lk ul { list-style: disc; padding-left: 1.4rem; }
+.prose-lk ol { list-style: decimal; padding-left: 1.4rem; }
+.prose-lk blockquote { border-left: 3px solid var(--primary); padding-left: 0.8rem; color: var(--muted); }
+.prose-lk code { background: var(--surface-2); padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.85em; }
+.prose-lk pre { background: var(--surface-2); padding: 0.8rem; border-radius: 10px; overflow-x: auto; }
+.prose-lk a { color: var(--primary); text-decoration: underline; }
+.prose-lk p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--subtle); float: left; height: 0; pointer-events: none; }
