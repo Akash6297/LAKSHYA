@@ -7,7 +7,7 @@ create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
 -- Secrets live in Supabase Vault (encrypted), not in the job definition.
-select vault.create_secret('https://YOUR-PROJECT-REF.supabase.co', 'lakshya_project_url');
+select vault.create_secret('https://jictfcedfdsmncebikor.supabase.co', 'lakshya_project_url');
 select vault.create_secret('YOUR-CRON-SECRET', 'lakshya_cron_secret');
 
 select cron.schedule(
