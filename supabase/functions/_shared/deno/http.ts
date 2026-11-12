@@ -1,7 +1,9 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
+// Auth is a Bearer token (no cookies), so '*' is safe. APP_URL optionally narrows it; a trailing
+// slash would never match the browser's Origin header and break every preflight, so strip it.
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('APP_URL') || '*',
+  'Access-Control-Allow-Origin': (Deno.env.get('APP_URL') || '*').trim().replace(/\/+$/, ''),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }

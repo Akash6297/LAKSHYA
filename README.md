@@ -77,7 +77,7 @@ flowchart LR
 
 ## 3. Quick start (local)
 
-Prerequisite: Node.js 20 or newer.
+Prerequisite: Node.js 24 or newer (npm 11). The lockfile is written by npm 11; `npm ci` on npm 10 (Node 22) rejects it.
 
 ```bash
 npm install

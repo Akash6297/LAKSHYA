@@ -258,6 +258,8 @@ function NotificationSection() {
 async function sendTest(channel: 'push' | 'email' | 'telegram') {
   const { data, error } = await supabase.functions.invoke('notify-test', { body: { channel } })
   if (error) {
+    // FunctionsFetchError = the request never got a response (function not deployed, or CORS rejected)
+    if (error.name === 'FunctionsFetchError') throw new Error('Could not reach the notify-test function. Deploy it with `npx supabase functions deploy notify-test` (README §6).')
     let msg = error.message
     try { msg = (await (error as { context?: Response }).context?.json())?.error ?? msg } catch { /* keep generic */ }
     throw new Error(msg)

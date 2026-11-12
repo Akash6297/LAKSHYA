@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "LAKSHYA (लक्ष्य) – Your Goals. Your Time. Your Journey.",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p . && vite build",
