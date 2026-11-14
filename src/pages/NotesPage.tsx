@@ -42,8 +42,8 @@ export default function NotesPage() {
         <aside className={cn('space-y-3', id && 'hidden lg:block')}>
           <div className="relative"><Search className="absolute top-3 left-3 h-4 w-4 text-subtle" /><Input className="pl-9" placeholder="Search notes or #tag" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search notes" /></div>
           <div className="flex gap-2">
-            <Segmented size="sm" value={view} onChange={setView} options={[{ value: 'active', label: 'Notes' }, { value: 'archived', label: 'Archive' }]} />
-            <Select className="h-9 py-1 text-xs" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Note type"><option value="">All types</option>{KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</Select>
+            <Segmented size="sm" className="shrink-0" value={view} onChange={setView} options={[{ value: 'active', label: 'Notes' }, { value: 'archived', label: 'Archive' }]} />
+            <Select className="h-9 min-w-0 flex-1 py-1 text-xs" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Note type"><option value="">All types</option>{KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</Select>
           </div>
           {notes.error ? <ErrorState error={notes.error} onRetry={() => notes.refetch()} /> : notes.isLoading ? <ListSkeleton /> : rows.length ? (
             <ul className="space-y-1.5">

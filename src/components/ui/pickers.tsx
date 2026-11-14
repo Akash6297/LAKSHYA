@@ -2,8 +2,12 @@ import { useState } from 'react'
 import { Bell, Check, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { REMINDER_PRESETS, SWATCHES, reminderLabel } from '@/lib/constants'
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAppData } from '@/providers/AppDataProvider'
-import { Select } from './form'
+import { useCrud } from '@/services/resource'
+import { Button } from './Button'
+import { Input, Select } from './form'
 
 export function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
@@ -23,13 +27,84 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (c: 
   )
 }
 
+const DEFAULT_CATEGORIES: [string, string][] = [
+  ['Office', '#6366F1'], ['Projects', '#8B5CF6'], ['Studies', '#0EA5E9'], ['Meetings', '#14B8A6'], ['Personal', '#F59E0B'],
+  ['Exams', '#EF4444'], ['Deadlines', '#F43F5E'], ['Health', '#10B981'], ['Family', '#EC4899'], ['Other', '#64748B'],
+]
+
+/**
+ * Create categories with friendly validation: duplicate names are rejected
+ * up front (instead of a raw unique-constraint error) and slugs never collide,
+ * even for names with no Latin characters (e.g. Hindi).
+ */
+export function useCreateCategory() {
+  const { categories } = useAppData()
+  const { create, createMany } = useCrud('categories')
+  const taken = new Set(categories.map((c) => c.slug))
+  const slugFor = (name: string) => {
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32) || 'cat'
+    let slug = base
+    for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`
+    taken.add(slug)
+    return slug
+  }
+  const add = async (rawName: string, color?: string) => {
+    const name = rawName.trim().slice(0, 40)
+    if (!name) throw new Error('Enter a category name')
+    const dup = categories.find((c) => c.name.toLowerCase() === name.toLowerCase())
+    if (dup) throw new Error(`“${dup.name}” already exists`)
+    const maxOrder = categories.reduce((m, c) => Math.max(m, c.sort_order), 0)
+    return create.mutateAsync({ name, slug: slugFor(name), color: color ?? SWATCHES[categories.length % SWATCHES.length], sort_order: maxOrder + 1 })
+  }
+  const restoreDefaults = () => {
+    const have = new Set(categories.map((c) => c.name.toLowerCase()))
+    const rows = DEFAULT_CATEGORIES.filter(([n]) => !have.has(n.toLowerCase()))
+      .map(([name, color], i) => ({ name, slug: slugFor(name), color, sort_order: categories.length + i + 1 }))
+    return rows.length ? createMany.mutateAsync(rows) : Promise.resolve([])
+  }
+  return { add, restoreDefaults, pending: create.isPending || createMany.isPending }
+}
+
+const NEW = '__new__'
+
 export function CategorySelect({ value, onChange, id }: { value: string | null; onChange: (v: string | null) => void; id?: string }) {
   const { categories } = useAppData()
+  const { add, pending } = useCreateCategory()
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const submit = async () => {
+    try {
+      const row = await add(name)
+      onChange(row.id)
+      setAdding(false); setName(''); setErr(null)
+      toast.success(`Category “${row.name}” created`)
+    } catch (e) { setErr((e as Error).message) }
+  }
+  if (adding) {
+    return (
+      <div>
+        <div className="flex gap-2">
+          <Input id={id} autoFocus value={name} maxLength={40} placeholder="New category name" aria-label="New category name" invalid={!!err}
+            onChange={(e) => { setName(e.target.value); setErr(null) }}
+            // Enter must not submit the surrounding task/event form
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit() } if (e.key === 'Escape') { e.stopPropagation(); setAdding(false) } }} />
+          <Button size="sm" className="h-auto shrink-0" aria-label="Add category" loading={pending} onClick={() => void submit()}>Add</Button>
+          <button type="button" className="shrink-0 rounded-lg px-1 text-muted hover:text-fg" onClick={() => { setAdding(false); setErr(null) }} aria-label="Cancel new category"><X className="h-4 w-4" /></button>
+        </div>
+        {err && <p role="alert" className="mt-1 text-xs font-medium text-danger">{err}</p>}
+      </div>
+    )
+  }
   return (
-    <Select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">No category</option>
-      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-    </Select>
+    <div>
+      <Select id={id} value={value ?? ''} onChange={(e) => (e.target.value === NEW ? setAdding(true) : onChange(e.target.value || null))}>
+        <option value="">No category</option>
+        {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        <option value={NEW}>+ New category…</option>
+      </Select>
+      {!categories.length && <p className="mt-1 text-xs text-subtle">No categories yet – choose “+ New category…” or restore the defaults in <Link to="/settings#categories" className="font-semibold text-primary">Settings → Categories</Link>.</p>}
+    </div>
   )
 }
 

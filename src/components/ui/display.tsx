@@ -131,11 +131,11 @@ export function Stat({ label, value, hint, icon, tone }: { label: string; value:
     danger: 'bg-danger-soft text-danger',
   }
   return (
-    <div className="card flex items-center gap-3 p-4">
-      {icon && <div className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', tones[tone ?? 'primary'])}>{icon}</div>}
-      <div className="min-w-0">
-        <div className="text-xs font-semibold text-muted">{label}</div>
-        <div className="text-xl font-extrabold tracking-tight tabular-nums">{value}</div>
+    <div className="card flex min-w-0 items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
+      {icon && <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl sm:h-10 sm:w-10', tones[tone ?? 'primary'])}>{icon}</div>}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs leading-tight font-semibold break-words text-muted">{label}</div>
+        <div className="text-lg font-extrabold tracking-tight tabular-nums sm:text-xl">{value}</div>
         {hint && <div className="truncate text-[11px] text-subtle">{hint}</div>}
       </div>
     </div>

@@ -42,7 +42,8 @@ export default function MyDayPage() {
   const workFrom = wh?.enabled ? zonedInstant(day, wh.start, tz) : zonedInstant(day, '08:00', tz)
   const workTo = wh?.enabled ? zonedInstant(day, wh.end, tz) : zonedInstant(day, '20:00', tz)
 
-  const timed = feed.items.filter((i) => !i.allDay)
+  // only items that actually overlap this day; anything outside would be clamped to the grid edge and pile up
+  const timed = feed.items.filter((i) => !i.allDay && i.end > from && i.start < to)
   const allDay = feed.items.filter((i) => i.allDay)
   const intervals = timed.filter((i) => !i.done).map((i) => ({ id: i.key, title: i.title, start: i.start, end: i.end }))
   const conflicts = findConflicts(intervals)

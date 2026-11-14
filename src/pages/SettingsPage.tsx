@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, CalendarDays, Database, Download, KeyRound, Mail, MessageCircle, Monitor, Moon, Palette, Plus, Send, Shield, Smartphone, Sun, Timer, Trash2, Upload, User } from 'lucide-react'
+import { Bell, CalendarDays, Database, Download, KeyRound, Mail, MessageCircle, Monitor, Moon, Palette, Plus, Send, Shield, Smartphone, Sun, Tags, Timer, Trash2, Upload, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/display'
 import { Field, Input, Select, Switch } from '@/components/ui/form'
-import { ColorPicker, ReminderPicker } from '@/components/ui/pickers'
+import { ColorPicker, ReminderPicker, useCreateCategory } from '@/components/ui/pickers'
 import { COMMON_TIMEZONES } from '@/lib/constants'
 import { exportAll, restoreBackup, toCsv, validateBackup } from '@/lib/backup'
 import { downloadFile } from '@/lib/utils'
@@ -23,7 +23,7 @@ import type { Category, Integration, NotificationPrefs } from '@/types/db'
 
 const SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User }, { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'calendar', label: 'Calendar & time', icon: CalendarDays }, { id: 'focus', label: 'Focus & study', icon: Timer },
+  { id: 'calendar', label: 'Calendar & time', icon: CalendarDays }, { id: 'categories', label: 'Categories', icon: Tags }, { id: 'focus', label: 'Focus & study', icon: Timer },
   { id: 'notifications', label: 'Notifications', icon: Bell }, { id: 'integrations', label: 'Integrations', icon: Send },
   { id: 'security', label: 'Security', icon: Shield }, { id: 'data', label: 'Data & privacy', icon: Database },
 ]
@@ -60,6 +60,7 @@ export default function SettingsPage() {
           <ProfileSection />
           <AppearanceSection />
           <CalendarSection />
+          <CategorySection />
           <FocusSection />
           <NotificationSection />
           <IntegrationsSection />
@@ -108,7 +109,7 @@ function AppearanceSection() {
 }
 
 function CalendarSection() {
-  const { settings, updateSettings, categories } = useAppData()
+  const { settings, updateSettings } = useAppData()
   const [tz, setTz] = useState(settings.timezone)
   useEffect(() => setTz(settings.timezone), [settings.timezone])
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -144,20 +145,36 @@ function CalendarSection() {
         </Field>
         <Field label="Working hours"><Link to="/work" className="text-sm font-semibold text-primary">Edit working days and hours in Work →</Link></Field>
       </div>
+    </Section>
+  )
+}
+
+function CategorySection() {
+  const { categories } = useAppData()
+  return (
+    <Section id="categories" title="Categories" icon={<Tags className="h-4 w-4" />}
+      description="Group tasks, events and projects. Pick a category in any task, event or project form – or create one right there with “+ New category…”.">
       <CategoryEditor categories={categories} />
     </Section>
   )
 }
 
 function CategoryEditor({ categories }: { categories: Category[] }) {
-  const { create, update, remove } = useCrud('categories')
+  const { update, remove } = useCrud('categories')
+  const { add, restoreDefaults, pending } = useCreateCategory()
   const confirm = useConfirm()
   const [name, setName] = useState('')
+  const [color, setColor] = useState('#6366F1')
   const [editing, setEditing] = useState<string | null>(null)
   return (
     <div>
-      <div className="label">Categories & colors</div>
-      <ul className="divide-y divide-line rounded-xl border border-line">
+      {!categories.length && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-line-strong p-3 text-sm text-muted">
+          <span className="min-w-0 flex-1">You don’t have any categories yet.</span>
+          <Button size="sm" variant="soft" loading={pending} onClick={() => restoreDefaults().then(() => toast.success('Default categories added'), errToast)}>Add default categories</Button>
+        </div>
+      )}
+      <ul className="divide-y divide-line rounded-xl border border-line empty:hidden">
         {categories.map((c) => (
           <li key={c.id} className="p-2.5">
             <div className="flex items-center gap-3">
@@ -170,15 +187,16 @@ function CategoryEditor({ categories }: { categories: Category[] }) {
           </li>
         ))}
       </ul>
-      <form className="mt-2 flex gap-2" onSubmit={(e) => {
+      <form className="mt-3 space-y-2" onSubmit={(e) => {
         e.preventDefault()
-        const n = name.trim()
-        if (!n) return
-        const slug = n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || crypto.randomUUID().slice(0, 8)
-        create.mutate({ name: n, slug, color: '#6366F1', sort_order: categories.length + 1 }, { onSuccess: () => setName('') })
+        if (!name.trim()) return
+        add(name, color).then((row) => { setName(''); toast.success(`Category “${row.name}” created`) }, errToast)
       }}>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="New category" maxLength={40} aria-label="New category name" />
-        <Button type="submit" variant="soft" icon={<Plus className="h-4 w-4" />}>Add</Button>
+        <div className="flex gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="New category name" maxLength={40} aria-label="New category name" />
+          <Button type="submit" variant="soft" className="shrink-0" loading={pending} icon={<Plus className="h-4 w-4" />}>Add</Button>
+        </div>
+        <ColorPicker value={color} onChange={setColor} />
       </form>
     </div>
   )

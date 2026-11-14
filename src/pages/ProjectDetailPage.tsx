@@ -75,12 +75,12 @@ export default function ProjectDetailPage() {
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="space-y-5 lg:col-span-2">
             <Card>
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                 <ProgressRing value={p.progress} size={96} stroke={9} color={p.color} />
-                <div className="grid flex-1 grid-cols-3 gap-3 text-center">
+                <div className="grid min-w-[200px] flex-1 grid-cols-3 gap-2 text-center sm:gap-3">
                   <div><div className="text-2xl font-extrabold">{all.length}</div><div className="text-xs text-muted">Tasks</div></div>
                   <div><div className="text-2xl font-extrabold text-success">{done}</div><div className="text-xs text-muted">Done</div></div>
-                  <div><div className="text-2xl font-extrabold">{ms.filter((m) => m.is_done).length}/{ms.length}</div><div className="text-xs text-muted">Milestones</div></div>
+                  <div><div className="text-2xl font-extrabold">{ms.filter((m) => m.is_done).length}/{ms.length}</div><div className="text-[11px] break-words text-muted sm:text-xs">Milestones</div></div>
                 </div>
               </div>
               <p className="mt-3 text-xs text-subtle">{p.progress_mode === 'auto' ? 'Progress = completed tasks ÷ all non-cancelled tasks.' : 'Progress is set manually.'}</p>

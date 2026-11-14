@@ -49,16 +49,16 @@ export default function WorkPage() {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card title="Weekly work overview" icon={<BriefcaseBusiness className="h-4 w-4" />} action={<Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit hours</Button>}>
-            <div className="grid grid-cols-7 gap-1.5">
+            <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
               {days.map((k) => {
                 const d = hours[String(dowOfKey(k))]
                 const onLeave = leaves.some((l) => fmt(l.start, tz, 'yyyy-MM-dd') <= k && fmt(new Date(l.end.getTime() - 1), tz, 'yyyy-MM-dd') >= k)
                 const mt = meetings.filter((m) => fmt(m.start, tz, 'yyyy-MM-dd') === k).length
                 return (
-                  <div key={k} className={cn('rounded-xl border p-2 text-center', k === today ? 'border-primary bg-primary-soft' : 'border-line', !d?.enabled && 'opacity-50')}>
-                    <div className="text-[11px] font-bold text-muted uppercase">{DAYS[dowOfKey(k)].slice(0, 3)}</div>
-                    <div className="text-lg font-extrabold">{Number(k.slice(8))}</div>
-                    {onLeave ? <Badge color="#F59E0B">Leave</Badge> : d?.enabled ? (
+                  <div key={k} className={cn('min-w-0 rounded-lg border px-0.5 py-2 text-center sm:rounded-xl sm:p-2', k === today ? 'border-primary bg-primary-soft' : 'border-line', !d?.enabled && 'opacity-50')}>
+                    <div className="text-[10px] font-bold text-muted uppercase sm:text-[11px]"><span className="sm:hidden">{DAYS[dowOfKey(k)].slice(0, 2)}</span><span className="hidden sm:inline">{DAYS[dowOfKey(k)].slice(0, 3)}</span></div>
+                    <div className="text-base font-extrabold sm:text-lg">{Number(k.slice(8))}</div>
+                    {onLeave ? <Badge color="#F59E0B" className="max-w-full truncate px-1 text-[9px] sm:px-2 sm:text-xs">Leave</Badge> : d?.enabled ? (
                       <>
                         <div className="mt-1 flex justify-center" title={d.mode === 'office' ? 'Office' : 'Work from home'}>{d.mode === 'office' ? <Building2 className="h-4 w-4 text-primary" /> : <Home className="h-4 w-4 text-success" />}</div>
                         <div className="mt-1 hidden text-[10px] text-muted sm:block">{d.start}–{d.end}</div>
@@ -119,7 +119,7 @@ function DailyChecklist() {
   const rows = (items.data ?? []) as ChecklistItem[]
   const carry = ((prev.data ?? []) as ChecklistItem[]).filter((p) => !rows.some((r) => r.title === p.title))
   return (
-    <Card title="Daily work checklist" icon={<ListChecks className="h-4 w-4" />} action={<Input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-8 w-40 py-1 text-xs" aria-label="Checklist date" />}>
+    <Card title="Daily work checklist" icon={<ListChecks className="h-4 w-4" />} action={<Input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-8 w-36 py-1 text-xs sm:w-40" aria-label="Checklist date" />}>
       <ul className="space-y-1">
         {rows.map((r) => (
           <li key={r.id} className="group flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-surface-2">
