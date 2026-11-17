@@ -1,3 +1,4 @@
+import { SITE_URL } from '@/lib/platform'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, friendlyError, AppError } from '@/lib/supabase'
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: { full_name: fullName.trim(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-          emailRedirectTo: `${location.origin}/`,
+          emailRedirectTo: `${SITE_URL}/`,
         },
       })
       fail(error)
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await clearOfflineData()
     },
     async sendReset(email) {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${location.origin}/reset-password` })
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${SITE_URL}/reset-password` })
       fail(error)
     },
     async updatePassword(password) {

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, CalendarDays, Database, Download, KeyRound, Mail, MessageCircle, Monitor, Moon, Palette, Plus, Send, Shield, Smartphone, Sun, Tags, Timer, Trash2, Upload, User } from 'lucide-react'
+import { Bell, CalendarDays, Database, Download, KeyRound, Mail, MessageCircle, Monitor, Moon, Palette, Plus, Send, Shield, Smartphone, Sparkles, Sun, Tags, Timer, Trash2, Upload, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/display'
@@ -21,7 +21,10 @@ import { currentSubscription, disablePush, enablePush, pushConfigured, pushSuppo
 import { whatsappLink } from '@/features/notifications/WhatsAppShare'
 import type { Category, Integration, NotificationPrefs } from '@/types/db'
 
+const JarvisSettingsSection = __LAKSHYA_JARVIS__ ? lazy(() => import('@/features/jarvis/JarvisSettingsSection')) : null
+
 const SECTIONS = [
+  ...(__LAKSHYA_JARVIS__ ? [{ id: 'jarvis', label: 'Jarvis', icon: Sparkles }] : []),
   { id: 'profile', label: 'Profile', icon: User }, { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'calendar', label: 'Calendar & time', icon: CalendarDays }, { id: 'categories', label: 'Categories', icon: Tags }, { id: 'focus', label: 'Focus & study', icon: Timer },
   { id: 'notifications', label: 'Notifications', icon: Bell }, { id: 'integrations', label: 'Integrations', icon: Send },
@@ -57,6 +60,7 @@ export default function SettingsPage() {
           ))}
         </nav>
         <div className="min-w-0 space-y-5">
+          {JarvisSettingsSection && <Suspense fallback={null}><JarvisSettingsSection /></Suspense>}
           <ProfileSection />
           <AppearanceSection />
           <CalendarSection />

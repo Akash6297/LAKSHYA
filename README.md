@@ -21,6 +21,7 @@ It is built to run at **zero cost** on free tiers: Vercel Hobby, Supabase Free, 
 10. [Project structure](#10-project-structure)
 11. [Security model](#11-security-model)
 12. [Known limitations](#12-known-limitations)
+13. [Jarvis – personal Android app](#13-jarvis--personal-android-app)
 
 ---
 
@@ -251,5 +252,16 @@ These are deliberate trade-offs to stay free and reliable:
 - **WhatsApp** is click-to-chat only (see §6.3).
 - The **Timeline** views are custom-built, because FullCalendar's resource timeline is a paid Premium plugin.
 - The Edge Functions use `npm:web-push` and `npm:nodemailer` through Deno's npm compatibility. They type-check and load under Deno 2, but run the *Test* buttons after deploying to confirm on Supabase's runtime.
+
+## 13. Jarvis – personal Android app
+
+A voice assistant (“Hey Jarvis”, “Radhe Radhe Lakshya”) that exists only in a personal Android build. The web app on Vercel never contains it. It is free to run: offline wake word (Vosk), rule-based command understanding, Android speech and text-to-speech, and phone alarms. Everything it creates is saved to the same Supabase account.
+
+```bash
+npm run android:build   # → release/Lakshya-Jarvis.apk
+```
+
+Setup, commands, training and limits: [docs/jarvis.md](docs/jarvis.md).
+
 #   L A K S H Y A  
  

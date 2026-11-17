@@ -1,6 +1,6 @@
-import { Suspense, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Bell, ChevronsLeft, ChevronsRight, CloudOff, LogOut, Menu, Moon, Plus, RefreshCw, Search, Sun, Timer, X } from 'lucide-react'
+import { AudioLines, Bell, ChevronsLeft, ChevronsRight, CloudOff, LogOut, Menu, Moon, Plus, RefreshCw, Search, Sun, Timer, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/brand/Logo'
 import { Avatar, Kbd } from '@/components/ui/display'
@@ -15,6 +15,11 @@ import { useSync } from '@/providers/SyncProvider'
 import { useFocus } from '@/providers/FocusProvider'
 import { useUnreadNotifications } from '@/features/notifications/useNotifications'
 import { UpdatePrompt } from '@/features/pwa/UpdatePrompt'
+import { IS_NATIVE_APP } from '@/lib/platform'
+import { openJarvis } from '@/features/jarvis/env'
+
+// Only the personal Android build includes Jarvis; the web build drops this import entirely.
+const JarvisRoot = __LAKSHYA_JARVIS__ ? lazy(() => import('@/features/jarvis/JarvisRoot')) : null
 
 const COLLAPSE_KEY = 'lakshya-sidebar'
 
@@ -68,7 +73,8 @@ export function AppLayout() {
       </div>
 
       <MobileNav onQuickAdd={openQuickAdd} />
-      <UpdatePrompt />
+      {!IS_NATIVE_APP && <UpdatePrompt />}
+      {JarvisRoot && <Suspense fallback={null}><JarvisRoot /></Suspense>}
     </div>
   )
 }
@@ -144,7 +150,12 @@ function TopBar({ onMenu, unread, onSearch, onQuickAdd }: { onMenu: () => void; 
               <Timer className="h-4 w-4" />{String(mm).padStart(2, '0')}:{String(ss).padStart(2, '0')}
             </Link>
           )}
-          <Button variant="ghost" size="icon" onClick={flip} aria-label="Toggle theme">{resolved === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</Button>
+          {__LAKSHYA_JARVIS__ && (
+            <button onClick={() => openJarvis()} className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary to-fuchsia-500 text-white shadow-soft" aria-label="Talk to Jarvis" title="Talk to Jarvis">
+              <AudioLines className="h-5 w-5" />
+            </button>
+          )}
+          <span className={__LAKSHYA_JARVIS__ ? 'hidden sm:inline-flex' : 'inline-flex'}><Button variant="ghost" size="icon" onClick={flip} aria-label="Toggle theme">{resolved === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</Button></span>
           <Link to="/notifications" className="relative grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg" aria-label={`Notifications, ${unread} unread`}>
             <Bell className="h-5 w-5" />
             {unread > 0 && <span className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">{unread > 9 ? '9+' : unread}</span>}

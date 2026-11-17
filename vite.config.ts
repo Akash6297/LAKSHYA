@@ -5,7 +5,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  define: {
+    // Jarvis ships only in the personal Android build (vite build --mode android).
+    // A literal here lets the bundler drop every Jarvis module from the public web app.
+    __LAKSHYA_JARVIS__: JSON.stringify(mode === 'android'),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -74,4 +79,4 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'supabase/functions/_shared/**/*.test.ts', 'supabase/tests/**/*.test.ts'],
     testTimeout: 30_000,
   },
-})
+}))
