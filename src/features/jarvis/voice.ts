@@ -3,11 +3,16 @@
 import { isNative, JarvisNative } from './native'
 
 export interface SpeakOptions { language: string; rate: number; pitch: number }
+export interface Heard { text: string; alternatives: string[] }
 
 export interface Voice {
   canListen: boolean
-  /** resolves with the final transcript ('' when nothing was heard) */
-  listen(language: string, onPartial: (text: string) => void, onLevel?: (rms: number) => void): Promise<string>
+  /**
+   * Resolves with the final transcript ('' when nothing was heard) and the
+   * recogniser's other guesses, which Jarvis tries when the first makes no sense.
+   */
+  listen(language: string, onPartial: (text: string) => void, onLevel?: (rms: number) => void): Promise<Heard>
+
   stopListening(): void
   speak(text: string, o: SpeakOptions): Promise<void>
   stopSpeaking(): void
@@ -37,7 +42,7 @@ function nativeVoice(): Voice {
       try {
         const r = await JarvisNative.listen({ language })
         if (r.error && !r.text) throw new Error(r.error)
-        return r.text ?? ''
+        return { text: r.text ?? '', alternatives: (r.alternatives ?? []).filter((a) => a && a !== r.text) }
       } finally {
         subs.forEach((s) => void s?.remove())
       }
@@ -55,27 +60,30 @@ function webVoice(): Voice {
   return {
     canListen: !!Ctor,
     listen(language, onPartial) {
-      if (!Ctor) return Promise.resolve('')
+      if (!Ctor) return Promise.resolve({ text: '', alternatives: [] })
       return new Promise((resolve) => {
         const rec = new Ctor()
         current = rec
         rec.lang = language
         rec.interimResults = true
         rec.continuous = false
-        rec.maxAlternatives = 1
+        rec.maxAlternatives = 3
         let finalText = ''
+        let alternatives: string[] = []
         rec.onresult = (e) => {
           let interim = ''
           for (let i = e.resultIndex; i < e.results.length; i++) {
             const r = e.results[i]
-            if (r.isFinal) finalText += r[0].transcript
-            else interim += r[0].transcript
+            if (r.isFinal) {
+              finalText += r[0].transcript
+              alternatives = Array.from({ length: r.length }, (_, k) => r[k].transcript.trim()).slice(1)
+            } else interim += r[0].transcript
           }
           onPartial((finalText + interim).trim())
         }
         rec.onerror = () => undefined
-        rec.onend = () => { current = null; resolve(finalText.trim()) }
-        try { rec.start() } catch { resolve('') }
+        rec.onend = () => { current = null; resolve({ text: finalText.trim(), alternatives }) }
+        try { rec.start() } catch { resolve({ text: '', alternatives: [] }) }
       })
     },
     stopListening: () => current?.stop(),

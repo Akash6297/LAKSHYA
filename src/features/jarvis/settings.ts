@@ -29,6 +29,10 @@ export interface JarvisSettings {
   /** how Jarvis addresses you; empty = first name from your profile */
   callMe: string
   confirmBeforeSave: boolean
+  /** ask before cancelling or deleting something (strongly recommended) */
+  confirmDeletes: boolean
+  /** fix misspelled and misheard command words ("calender", "remainder") */
+  autocorrect: boolean
   /** after a wake-word session, return to the app you were using */
   returnToPreviousApp: boolean
   /** let Jarvis answer over the lock screen without unlocking */
@@ -51,6 +55,8 @@ export const DEFAULT_JARVIS: JarvisSettings = {
   voice: { speak: true, language: 'en-IN', rate: 1, pitch: 1 },
   callMe: '',
   confirmBeforeSave: false,
+  confirmDeletes: true,
+  autocorrect: true,
   returnToPreviousApp: true,
   allowOnLockScreen: false,
   briefing: { enabled: true, time: '07:30' },

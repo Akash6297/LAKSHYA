@@ -13,6 +13,16 @@ export interface PermissionState {
   /** ringing alarm screen over the lock screen */
   fullScreen: boolean
   exactAlarms: boolean
+  /** find people by name for "call Rahul" */
+  contacts: boolean
+  /** place calls directly (otherwise the dialer opens with the number filled in) */
+  phone: boolean
+}
+
+export interface NativeContact {
+  name: string
+  numbers: { number: string; label: 'mobile' | 'work' | 'home' | 'other'; primary?: boolean }[]
+  starred?: boolean
 }
 
 export interface WakeStatus {
@@ -55,11 +65,17 @@ export interface LaunchInfo {
   fromBackground?: boolean
 }
 
+export type PermissionKind = 'microphone' | 'notifications' | 'contacts' | 'phone'
+
 export type SettingsKind = 'overlay' | 'battery' | 'fullScreen' | 'exactAlarm' | 'app' | 'notifications'
 
 export interface JarvisNativePlugin {
   getStatus(): Promise<NativeStatus>
-  requestPermission(o: { kind: 'microphone' | 'notifications' }): Promise<{ granted: boolean }>
+  requestPermission(o: { kind: PermissionKind }): Promise<{ granted: boolean }>
+  /** all contacts that have a phone number (needs the contacts permission) */
+  getContacts(): Promise<{ contacts: NativeContact[] }>
+  /** placed: true = the call started; false = the dialer opened with the number (no call permission) */
+  placeCall(o: { number: string }): Promise<{ placed: boolean }>
   openSettings(o: { kind: SettingsKind }): Promise<void>
   startWakeWord(o: { phrases: string[]; mode: ListenMode; threshold: number; allowOnLockScreen: boolean }): Promise<WakeStatus>
   stopWakeWord(): Promise<void>

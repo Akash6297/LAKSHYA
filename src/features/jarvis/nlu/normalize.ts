@@ -5,6 +5,8 @@
 // "when I say X I mean Y" corrections, common Hinglish (Latin script) and
 // Devanagari scheduling words, spelled-out numbers next to time units.
 
+import { autocorrect } from './autocorrect'
+
 export interface Correction { heard: string; meant: string }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -41,6 +43,8 @@ const DEVANAGARI: [RegExp, string][] = [
   [/सोमवार/g, ' monday '], [/मंगलवार/g, ' tuesday '], [/बुधवार/g, ' wednesday '], [/गुरुवार|बृहस्पतिवार/g, ' thursday '],
   [/शुक्रवार/g, ' friday '], [/शनिवार/g, ' saturday '], [/रविवार/g, ' sunday '],
   [/हर दिन|रोज़|रोज/g, ' every day '], [/हाँ|हां/g, ' haan '], [/नहीं/g, ' nahi '], [/धन्यवाद|शुक्रिया/g, ' thanks '],
+  [/को/g, ' ko '], [/कॉल/g, ' call '], [/फ़ोन|फोन/g, ' phone '], [/कैंसिल|कैंसल/g, ' cancel '], [/हटा दो|हटाओ|हटा/g, ' hata do '],
+  [/शिफ्ट/g, ' shift '], [/हो गया|हो गई/g, ' ho gaya '],
   [/[।॥]/g, ' '],
 ]
 const DEVANAGARI_DIGITS = '०१२३४५६७८९'
@@ -82,12 +86,29 @@ const HINGLISH: [RegExp, string | ((...m: string[]) => string)][] = [
   [/\b(?:mujhe\s+)?motivate\s+(?:karo|kar\s+do|kijiye)\b/g, 'motivate me'],
   [/\bthak\s+gaya(?:\s+hu|\s+hoon)?\b|\bthaka\s+hua\s+hu\b/g, "i'm tired"],
   [/\b(?:shukriya|dhanyavaad|dhanyawad|thank\s+you\s+ji)\b/g, 'thanks'],
+  // calls: "mummy ko call karo", "rahul sharma ko phone lagao"
+  [/\b([a-z]+(?:\s+[a-z]+)?)\s+ko\s+(?:call|phone|fone|kol)\b(?:\s+(?:karo|kar\s*do|kar\s*dena|kardo|lagao|laga\s*do|lagana|milao|mila\s*do|karna|kar))?/g, (m: string, who: string) => {
+    const w = who.split(' ')
+    const keep: string[] = []
+    while (w.length && CALL_STOP.has(w[0])) keep.push(w.shift()!)
+    return w.length ? `${keep.join(' ')} call ${w.join(' ')}`.trim() : m
+  }],
+  // editing: "meeting ko 6 baje shift karo" → "move meeting to at 6"
+  [/^(?!(?:remind|add|create|set|make|schedule|note|take|call)\b)(.+?)\s+ko\s+(.+?)\s+(?:shift|move|reschedule|postpone|prepone|change|badal|badlo|kar)(?:\s+(?:karo|kar\s*do|kar\s*dena|kardo|do|dena))?$/, 'move $1 to $2'],
+  [/^(?!(?:remind|add|create|set|make|schedule|note|take|call|reschedule|move)\b)(.+?)\s+(?:ko\s+)?(?:(?:shift|reschedule|postpone|prepone)\s+(?:karo|kar\s*do|kar\s*dena|kardo|kar)|aage\s+(?:badha|badhao|badha\s+do|kar\s*do))$/, 'reschedule $1'],
+  // "gym wali meeting cancel kar do", "kal ka dentist hata do"
+  [/^(?!(?:remind|add|create|set|make|schedule|note|take|cancel|delete|remove|call)\b)(.+?)\s+(?:ko\s+)?(?:(?:cancel|delete|remove|radd)\s+(?:karo|kar\s*do|kar\s*dena|kardo|kar)|hata(?:o|\s+do|\s+dena)?|mita(?:o|\s+do|\s+dena)?)$/, 'cancel $1'],
+  // "report ko done mark karo", "gym kar liya", "report ho gaya"
+  [/^(.+?)\s+(?:ko\s+)?(?:done|complete)\s+(?:mark\s+)?(?:karo|kar\s*do|kardo)$/, 'mark $1 as done'],
+  [/^(?:maine\s+)?(.+?)\s+(?:ho\s*gaya|ho\s*gayi|ho\s*gya|hogaya|kar\s+liya|kar\s+li|done\s+hai|complete\s+ho\s+gaya)$/, 'mark $1 as done'],
 ]
 
-// filler that never changes meaning
-const FILLER = /\b(?:please|plz|pls|kindly|could you|can you|would you|will you|i want you to|i'd like you to|i need you to|for me|zara|kripya|jarvis(?!\s+settings)|karo|kar do|kardo|kariye|kijiye|na)\b/g
+const CALL_STOP = new Set(['me', 'mujhe', 'remind', 'to', 'and', 'please', 'abhi', 'now'])
 
-const WAKE_PREFIX = /^(?:(?:hey|hi|hello|ok|okay|radhe\s+radhe|radhe|radha\s+radha)\s+)?(?:jarvis|lakshya|laksha|lakshay|lucky|luck\s+shia)\b[\s,.!?]*/
+// filler that never changes meaning
+const FILLER = /\b(?:please|plz|pls|kindly|could you|can you|would you|will you|i want you to|i'd like you to|i need you to|for me|zara|kripya|jarvis(?!\s+settings)|karo|kar do|kardo|kariye|kijiye|na|maine)\b/g
+
+const WAKE_PREFIX = /^(?:(?:hey|hi|hello|ok|okay|radhe\s+radhe|radhe|radha\s+radha)\s+)?(?:jarvis|jervis|jarvish|javis|jaarvis|jarwis|lakshya|laksha|lakshay|lucky|luck\s+shia)\b[\s,.!?]*/
 
 export function applyCorrections(text: string, corrections: Correction[]): string {
   let out = text
@@ -108,7 +129,7 @@ export interface Normalized {
   radhe: boolean
 }
 
-export function normalize(raw: string, corrections: Correction[] = []): Normalized {
+export function normalize(raw: string, corrections: Correction[] = [], opts: { autocorrect?: boolean } = {}): Normalized {
   let cased = applyCorrections(raw.normalize('NFC'), corrections).replace(/\s+/g, ' ').trim()
   const radhe = /^\s*radh[ae]\s+radh[ae]/i.test(cased)
   // drop the wake phrase from the cased copy too
@@ -125,6 +146,7 @@ export function normalize(raw: string, corrections: Correction[] = []): Normaliz
     .replace(/\.(?=\s|$)/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+  if (opts.autocorrect !== false) t = autocorrect(t)
   t = t.replace(WAKE_PREFIX, '').trim()
   for (const [re, rep] of HINGLISH) t = t.replace(re, rep as never)
 

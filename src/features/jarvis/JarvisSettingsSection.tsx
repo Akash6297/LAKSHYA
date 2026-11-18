@@ -9,7 +9,7 @@ import { Segmented } from '@/components/ui/display'
 import { Field, Input, Select, Switch } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { useAppData } from '@/providers/AppDataProvider'
-import { isNative, JarvisNative, type NativeStatus, type SettingsKind } from './native'
+import { isNative, JarvisNative, type NativeStatus, type PermissionKind, type SettingsKind } from './native'
 import { DEFAULT_WAKE_PHRASES, useJarvisSettings, type JarvisSettings, type ListenMode, type Shortcut } from './settings'
 import { createVoice } from './voice'
 import { addCustomAlarm } from './alarms'
@@ -103,6 +103,8 @@ export default function JarvisSettingsSection() {
 
         <Block title="Behaviour" icon={<Layers className="h-4 w-4" />}>
           <Switch label="Ask before saving" description="Off: Jarvis saves immediately and you can say “undo”." checked={s.confirmBeforeSave} onChange={(v) => set((x) => ({ ...x, confirmBeforeSave: v }))} />
+          <Switch label="Ask before cancelling or deleting" description="Recommended: a misheard word won't remove a meeting." checked={s.confirmDeletes} onChange={(v) => set((x) => ({ ...x, confirmDeletes: v }))} />
+          <Switch label="Autocorrect" description="Fixes misspelled and misheard words like “calender” or “remainder”." checked={s.autocorrect} onChange={(v) => set((x) => ({ ...x, autocorrect: v }))} />
           <Switch label="Go back to the previous app" description="After a “Hey Jarvis” session, return to what you were doing." checked={s.returnToPreviousApp} onChange={(v) => set((x) => ({ ...x, returnToPreviousApp: v }))} />
           <Switch label="Work on the lock screen without unlocking" description="Off is safer: anyone could otherwise ask Jarvis about your day." checked={s.allowOnLockScreen} onChange={(v) => set((x) => ({ ...x, allowOnLockScreen: v }))} />
         </Block>
@@ -139,7 +141,7 @@ export default function JarvisSettingsSection() {
 
 function Permissions({ st, refresh, s }: { st: NativeStatus; refresh: () => Promise<void>; s: JarvisSettings }) {
   const p = st.permissions
-  const ask = async (kind: 'microphone' | 'notifications') => {
+  const ask = async (kind: PermissionKind) => {
     await JarvisNative.requestPermission({ kind }).catch(() => undefined)
     if (kind === 'microphone' && s.wake.enabled) await JarvisNative.startWakeWord({ phrases: s.wake.phrases, mode: s.wake.mode, threshold: s.wake.threshold, allowOnLockScreen: s.allowOnLockScreen }).catch(() => undefined)
     await refresh()
@@ -148,6 +150,8 @@ function Permissions({ st, refresh, s }: { st: NativeStatus; refresh: () => Prom
   const rows: { ok: boolean; title: string; why: string; action: () => void; label: string; hide?: boolean }[] = [
     { ok: p.microphone, title: 'Microphone', why: 'To hear your wake word and commands.', action: () => void ask('microphone'), label: 'Allow' },
     { ok: p.notifications, title: 'Notifications', why: 'For reminders, alarms and the listening indicator.', action: () => void ask('notifications'), label: 'Allow' },
+    { ok: p.contacts, title: 'Contacts', why: 'So “call Mom” finds the right person. Stays on your phone.', action: () => void ask('contacts'), label: 'Allow' },
+    { ok: p.phone, title: 'Phone calls', why: 'Jarvis places the call itself; otherwise the dialer opens and you tap call.', action: () => void ask('phone'), label: 'Allow' },
     { ok: p.overlay, title: 'Display over other apps', why: '“Hey Jarvis” can then open the app while you use another one.', action: () => open('overlay'), label: 'Open settings' },
     { ok: p.batteryUnrestricted, title: 'Unrestricted battery', why: 'Stops Android from silently stopping the listener and alarms.', action: () => open('battery'), label: 'Allow' },
     { ok: p.fullScreen, title: 'Full-screen alerts', why: 'Ringing alerts can light up the lock screen like a call.', action: () => open('fullScreen'), label: 'Open settings', hide: st.sdk < 34 },
@@ -216,7 +220,7 @@ function Training({ s, set }: { s: JarvisSettings; set: (fn: (s: JarvisSettings)
   const understood = useMemo(() => {
     if (!probe.trim()) return null
     const now = new Date()
-    const { command: c } = parseCommand(probe, { now, tz, corrections: s.corrections, shortcuts: s.shortcuts })
+    const { command: c } = parseCommand(probe, { now, tz, corrections: s.corrections, shortcuts: s.shortcuts, autocorrect: s.autocorrect })
     const when = (w: Parameters<typeof resolveWhen>[0], purpose: Parameters<typeof resolveWhen>[1]['purpose']) => {
       const r = resolveWhen(w, { now, tz, purpose })
       if (!r.dateKey) return ''
@@ -228,6 +232,17 @@ function Training({ s, set }: { s: JarvisSettings; set: (fn: (s: JarvisSettings)
       case 'agenda': return `Reads your ${c.focus === 'all' ? 'schedule' : c.focus} ${c.when.dateKey ? when(c.when, 'agenda') : ''}`.trim()
       case 'navigate': return `Opens ${c.label}`
       case 'shortcut': return `Runs your shortcut “${s.shortcuts[c.index]?.phrase}”`
+      case 'call': return c.number ? `Calls ${c.number}` : `Calls “${c.who}” from your contacts${c.label ? ` (${c.label})` : ''}`
+      case 'learn': return `Learns: “${c.heard}” means “${c.meant}”`
+      case 'info': return c.say
+      case 'item': {
+        const what = [c.ref.next ? 'next' : '', c.ref.all ? 'all' : '', c.ref.words.join(' ') || c.ref.kind || 'item'].filter(Boolean).join(' ')
+        const day = c.ref.when.dateKey ? ` ${when(c.ref.when, 'agenda')}` : ''
+        const a = c.action
+        const did = a.op === 'delete' ? 'Cancels / deletes' : a.op === 'complete' ? 'Marks done:' : a.op === 'rename' ? `Renames to “${a.title}”:` : a.op === 'extend' ? `${a.minutes > 0 ? 'Extends' : 'Shortens'} by ${Math.abs(a.minutes)} min:` : 'Moves'
+        const to = a.op === 'move' ? (a.shiftMin !== undefined ? ` by ${a.shiftMin} min` : a.when ? ' to the new time' : ' (asks when)') : ''
+        return `${did} “${what}”${day}${to}`
+      }
       case 'unknown': return c.title ? `Not sure. Jarvis will ask what to do with “${c.title}”.` : 'Not understood yet. Add a shortcut or correction below.'
       default: return ({ motivate: 'Motivates you', balance: 'Work–life balance check', briefing: 'Daily briefing', timer: 'Timer', focus: 'Starts focus mode', undo: 'Undo the last item', help: 'Shows help', greet: 'Greets you', thanks: "You're welcome", cancel: 'Closes Jarvis', time: 'Tells the time', date: 'Tells the date', yes: 'Yes', no: 'No' } as Record<string, string>)[c.kind] ?? c.kind
     }

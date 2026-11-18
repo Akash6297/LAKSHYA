@@ -4,6 +4,8 @@
 import type { MeetingPlatform, Priority } from '@/types/db'
 import { capitalize, caseMap, normalize, restoreCase, type Correction } from './normalize'
 import { hasWhen, parseWhen, stripSpans, type When } from './when'
+import { parseRef, type ItemRef, type PhoneLabel } from './match'
+import { spokenNumber } from './autocorrect'
 
 export type Target = 'event' | 'meeting' | 'task' | 'note'
 export type Mood = 'tired' | 'stressed' | 'lazy' | 'sad' | 'general'
@@ -22,8 +24,20 @@ export interface CreateCommand {
   priority?: Priority
 }
 
+/** What to do with an existing calendar item or task. */
+export type ItemAction =
+  | { op: 'delete' }
+  | { op: 'move'; when?: When; shiftMin?: number }
+  | { op: 'extend'; minutes: number }
+  | { op: 'rename'; title: string }
+  | { op: 'complete' }
+
 export type Command =
   | CreateCommand
+  | { kind: 'item'; action: ItemAction; ref: ItemRef }
+  | { kind: 'call'; who: string; number?: string; label?: PhoneLabel }
+  | { kind: 'learn'; heard: string; meant: string }
+  | { kind: 'info'; say: string }
   | { kind: 'alarm'; when: When; label: string }
   | { kind: 'timer'; minutes: number | null; label: string }
   | { kind: 'agenda'; when: When; focus: AgendaFocus }
@@ -42,6 +56,8 @@ export interface ParseContext {
   tz: string
   corrections?: Correction[]
   shortcuts?: { phrase: string }[]
+  /** fix misspelled / misheard command words (default on) */
+  autocorrect?: boolean
 }
 
 export interface Parsed {
@@ -115,7 +131,7 @@ const CREATE_VERB = /\b(?:add|create|make|set ?up|book|put|block|arrange|organi[
 const QUESTION = /\b(?:what(?:'s| is| are| do i have)?|whats|show(?: me)?|tell me|read(?: out)?|list|any|anything|do i have|is there|kya|kaun|how many|when is)\b/
 
 export function parseCommand(raw: string, ctx: ParseContext): Parsed {
-  const n = normalize(raw, ctx.corrections)
+  const n = normalize(raw, ctx.corrections, { autocorrect: ctx.autocorrect })
   return { command: detect(n.text, n.cased, ctx), normalized: n.text, cased: n.cased, radhe: n.radhe }
 }
 
@@ -134,10 +150,17 @@ function detect(t: string, cased: string, ctx: ParseContext): Command {
   if (/^(?:cancel|stop|never ?mind|nothing|exit|close|quit|bye|bye bye|goodbye|good night|bas|ruko|chhodo|leave it|that'?s all|that is all|that'?s it|shut up|be quiet|go away|done)$/.test(t)) return { kind: 'cancel' }
   if (/^(?:thanks?|thank you|thank u|thanks a lot|thank you so much|great|perfect|awesome|nice|good job|well done|cool|wonderful|excellent|super|thanks buddy)$/.test(t)) return { kind: 'thanks' }
   if (/^(?:hi|hello|hey|namaste|namaskar|radhe radhe|jai shri krishna|jai shree krishna|hare krishna|yo|sup|what'?s up|are you there|you there)$/.test(t)) return { kind: 'greet' }
-  if (words.length <= 6 && /\b(?:undo|delete (?:that|it|the last(?: one| item| thing)?)|remove (?:that|it|the last one)|cancel (?:that|it|the last one)|take (?:that|it) back|galat)\b/.test(t)) return { kind: 'undo' }
+  if (words.length <= 6 && (/\bundo\b|\btake (?:that|it) back\b/.test(t) || /^(?:(?:delete|remove|cancel|scrap) (?:that|it|this|the last(?: one| item| thing)?)|galat|galat hai|that'?s wrong)$/.test(t))) return { kind: 'undo' }
   if (/\b(?:help|what can you do|what do you do|commands|how (?:do i|to) use you|what can i (?:say|ask))\b/.test(t)) return { kind: 'help' }
   if (/^(?:what(?:'s| is) the time|what time is it|time|time now|the time|tell me the time|current time)(?: now)?$/.test(t)) return { kind: 'time' }
   if (/^(?:what(?:'s| is) (?:the |today'?s )?(?:date|day)(?: today)?|what day is (?:it|today)|today'?s date|tell me the date|date today)$/.test(t)) return { kind: 'date' }
+
+  const learn = learnCommand(t, cased)
+  if (learn) return learn
+  const call = callCommand(t, cased, ctx)
+  if (call) return call
+  const item = itemCommand(t, cased, ctx)
+  if (item) return item
 
   const create = CREATE_VERB.test(t)
   if (!create) {
@@ -191,6 +214,141 @@ function alarmLabel(t: string, when: When): string {
     .replace(/\bwake me(?: up)?\b|\bwake up call\b/g, ' ')
     .replace(/^\s*(?:for|to|called|labelled|labeled|named)\s+/, '')
   return cleanTitle(rest, new Map())
+}
+
+// --- teaching by voice --------------------------------------------------------
+// "When I say jim I mean gym", "learn that RS means Rahul Sharma", "jim ka matlab gym"
+
+const LEARN = /^(?:when(?:ever)?\s+i\s+say|if\s+i\s+say|learn\s+that|remember\s+that\s+when\s+i\s+say)\s+(.+?)\s*,?\s+(?:i\s+mean|i\s+meant|it\s+means|that\s+means|means|you\s+should\s+hear)\s+(.+?)[.!]?$/i
+const LEARN_HI = /^(.+?)\s+ka\s+matlab\s+(.+?)(?:\s+(?:hai|he|hota hai))?[.!]?$/i
+
+function learnCommand(t: string, cased: string): Command | null {
+  const clean = (s: string) => s.replace(/["“”‘’]|^'|'$/g, '').trim()
+  const m = cased.match(LEARN) ?? t.match(LEARN) ?? cased.match(LEARN_HI)
+  if (!m) return null
+  const heard = clean(m[1]), meant = clean(m[2])
+  if (!heard || !meant || heard.toLowerCase() === meant.toLowerCase() || heard.split(/\s+/).length > 6) return null
+  return { kind: 'learn', heard, meant }
+}
+
+// --- phone calls -----------------------------------------------------------------
+
+const CALL = /^(?:(?:make|place|give|start)\s+(?:a\s+)?(?:phone\s+|voice\s+)?call\s+(?:to|with)|(?:phone|voice)\s+call\s+(?:to\s+)?|call\s+up|call\s+to|call|phone|dial|ring(?:\s+up)?|try\s+calling|connect\s+me\s+(?:to|with)|i\s+(?:want|need|would like|wanna)\s+to\s+(?:call|talk\s+to|speak\s+(?:to|with))|let\s+me\s+(?:call|talk\s+to))\s+(.+)$/
+
+function callCommand(t: string, cased: string, ctx: ParseContext): Command | null {
+  if (/^(?:call|phone)\s+(?:with|me|meeting)\b/.test(t)) return null // "call with Rahul at 5" is a meeting
+  const m = t.match(CALL)
+  if (!m || /^with\b/.test(m[1])) return null
+  let who = ` ${m[1]} `
+  let label: PhoneLabel | undefined
+  who = who.replace(/\b(?:on|at)\s+(?:(?:his|her|their|the|my)\s+)?(mobile|cell|work|office|home|landline)(?:\s+(?:number|phone))?\b/, (_x, l: string) => {
+    label = l === 'cell' ? 'mobile' : l === 'office' ? 'work' : l === 'landline' ? 'home' : (l as PhoneLabel)
+    return ' '
+  })
+  who = who.replace(/\b(?:right now|now|immediately|abhi|asap|please|for me|on (?:speaker|loud ?speaker))\b/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!who) return null
+  const number = spokenNumber(who)
+  if (number) return { kind: 'call', who: number, number, label }
+  // "call mom at 8" is a reminder, not a call right now
+  const when = parseWhen(who, ctx.now, ctx.tz)
+  if (hasWhen(when)) return createCommand(`remind me to call ${who}`, cased, ctx)
+  who = who.replace(/^(?:my|the)\s+/, '').replace(/'s$/, '')
+  if (!who || who.split(' ').length > 5) return null
+  return { kind: 'call', who: restoreCase(who, caseMap(cased)), label }
+}
+
+// --- changing existing items -----------------------------------------------------
+
+const LEAD_IN = /^(?:i\s+(?:want|need|would like|wanna)\s+to|let'?s|go ahead and|just|also|then)\s+/
+
+function itemCommand(t: string, cased: string, ctx: ParseContext): Command | null {
+  const s = t.replace(LEAD_IN, '')
+  const item = (action: ItemAction, refText: string, force: Partial<ItemRef> = {}): Command => {
+    const ref = { ...parseRef(refText.replace(/\b(?:from|in|on)\s+(?:my\s+|the\s+)?(?:calendar|schedule|tasks?|to ?do(?: list)?|list)\b/g, ' '), ctx.now, ctx.tz), ...force }
+    return { kind: 'item', action, ref }
+  }
+  const amount = (txt: string) => {
+    const w = parseWhen(`for ${txt.replace(/^(?:another|an extra|extra)\s+/, '')}`, ctx.now, ctx.tz)
+    return w.durationMin ?? null
+  }
+  let m: RegExpMatchArray | null
+
+  // mark as done
+  if ((m = s.match(/^(?:mark|set)\s+(.+?)\s+(?:as\s+)?(?:done|complete|completed|finished)$/))
+    || (m = s.match(/^(?:complete|tick off|check off|cross off)\s+(.+)$/))
+    || (m = s.match(/^i(?:'ve|\s+have)?(?:\s+already)?\s+(?:finished|completed|done with)\s+(.+)$/))
+    || (m = s.match(/^(.+?)\s+(?:is|are|was)\s+(?:done|finished|completed)$/))) {
+    return item({ op: 'complete' }, m[1])
+  }
+  if ((m = s.match(/^finish\s+(.+)$/)) && !hasWhen(parseWhen(m[1], ctx.now, ctx.tz))) return item({ op: 'complete' }, m[1])
+
+  // rename
+  if ((m = s.match(/^(?:rename|re name)\s+(.+?)\s+(?:to|as)\s+(.+)$/))
+    || (m = s.match(/^change\s+(?:the\s+)?(?:name|title)\s+of\s+(.+?)\s+to\s+(.+)$/))
+    || (m = s.match(/^change\s+(.+?)\s+(?:name|title)\s+to\s+(.+)$/))) {
+    const title = cleanTitle(m[2], caseMap(cased))
+    if (title) return item({ op: 'rename', title }, m[1])
+  }
+
+  // longer / shorter
+  if ((m = s.match(/^(extend|lengthen|shorten|cut short|reduce)\s+(.+?)\s+by\s+(.+)$/))) {
+    const min = amount(m[3])
+    if (min) return item({ op: 'extend', minutes: /^(?:shorten|cut|reduce)/.test(m[1]) ? -min : min }, m[2])
+  }
+
+  // shift by an amount: "push my meeting back by 30 minutes", "move gym 1 hour earlier"
+  const EARLIER = /^(?:prepone|bring forward|pull forward|advance|move up)$/
+  if ((m = s.match(/^(postpone|push(?:\s+back)?|delay|move|shift|prepone|bring forward|pull forward|advance|move up)\s+(.+?)\s+(?:back\s+|forward\s+|ahead\s+)?by\s+(.+?)(?:\s+(later|earlier|ahead|back))?$/))
+    || (m = s.match(/^(move|shift|push)\s+(.+?)\s+((?:\d+(?:\.\d+)?|an?|one|half an?)\s*(?:minutes?|mins?|hours?|hrs?|days?))\s+(later|earlier|ahead|back)$/))) {
+    const min = amount(m[3])
+    if (min) {
+      const earlier = EARLIER.test(m[1]) || m[4] === 'earlier'
+      return item({ op: 'move', shiftMin: earlier ? -min : min }, m[2])
+    }
+  }
+
+  // "the meeting with Rahul is postponed to Friday"
+  if ((m = s.match(/^(.+?)\s+(?:is|has been|got|was|will be)\s+(?:postponed|moved|rescheduled|shifted|pushed|preponed)\s+(?:to|till|until)\s+(.+)$/))) {
+    const w = parseWhen(bareTime(m[2]), ctx.now, ctx.tz)
+    if (hasWhen(w)) return item({ op: 'move', when: w }, m[1])
+  }
+
+  // move to a new time: "move my meeting with Rahul to 6 pm", "reschedule gym to tomorrow"
+  if ((m = s.match(/^(re ?schedule|move|shift|postpone|push|delay|prepone|bring forward|change|update|edit|modify)\s+(.+)$/))) {
+    const verb = m[1]
+    const rest = m[2].replace(/^(?:the\s+)?(?:time|date|timing|day)\s+(?:of|for)\s+/, '')
+    const splits = [...rest.matchAll(/\s(?:to|till|until|for|into|on)\s/g)].reverse()
+    for (const sp of splits) {
+      const left = rest.slice(0, sp.index)
+      const right = rest.slice(sp.index! + sp[0].length)
+      const w = parseWhen(bareTime(right), ctx.now, ctx.tz)
+      if (left.trim() && hasWhen(w)) return item({ op: 'move', when: w }, left)
+    }
+    if (/^(?:change|update|edit|modify)$/.test(verb)) {
+      if (/\b(?:meeting|event|task|reminder|appointment|calendar|schedule)\b/.test(rest)) {
+        return { kind: 'info', say: 'I can change the time, the date or the name. Try “move my meeting with Rahul to 6 PM” or “rename it to Weekly review”.' }
+      }
+      return null
+    }
+    return item({ op: 'move' }, rest) // Jarvis asks for the new time
+  }
+
+  // delete / cancel
+  if ((m = s.match(/^(?:delete|remove|cancel|erase|scrap|scratch|call off|clear|get rid of|discard|trash|drop)\s+(.+)$/))
+    || (m = s.match(/^(.+?)\s+(?:is|has been|got|was|are|have been)\s+(?:cancelled|canceled|called off)$/))) {
+    const what = m[1]
+    if (/^(?:me|a|an)\b/.test(what) && /^drop/.test(s)) return null
+    if (/\b(?:alarms?|timers?)\b/.test(what)) return { kind: 'info', say: 'Alarms and timers live in your Clock app. Open it to turn one off.' }
+    if (/\bnotes?\b/.test(what)) return { kind: 'info', say: 'I can’t delete notes by voice yet. Open Notes to remove it.' }
+    const clear = /^clear\b/.test(s) && /\b(?:schedule|calendar|day|plan|agenda|everything|meetings|tasks)\b/.test(what)
+    return item({ op: 'delete' }, what, clear ? { all: true } : {})
+  }
+  return null
+}
+
+/** "6" / "6:30 pm" alone → "at 6" so the time parser accepts it. */
+export function bareTime(s: string): string {
+  return s.trim().replace(/^(\d{1,2}(?:[:.]\d{2})?)(\s*(?:am|pm))?(?=\s|$)/, 'at $1$2')
 }
 
 // --- creation ---------------------------------------------------------------

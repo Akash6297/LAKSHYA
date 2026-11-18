@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { AlarmClock, CalendarDays, CheckSquare, Keyboard, Mic, MicOff, Quote as QuoteIcon, Send, Settings2, Sparkles, StickyNote, Timer, Undo2, Users, X } from 'lucide-react'
+import { AlarmClock, CalendarDays, CheckSquare, Keyboard, Mic, MicOff, Phone, Quote as QuoteIcon, Send, Settings2, Sparkles, StickyNote, Timer, Undo2, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmt } from '@/lib/dates'
 import type { Card } from './brain'
@@ -18,9 +18,9 @@ export interface Turn {
   undoable?: boolean
 }
 
-const SUGGESTIONS = ["What's my day?", 'Motivate me', "What's next?", 'Add a meeting tomorrow at 11', 'Take a note', 'Am I working too much?']
+const SUGGESTIONS = ["What's my day?", "What's next?", 'Add a meeting tomorrow at 11', 'Push my next meeting by 30 minutes', 'Call Mom', 'Motivate me']
 
-const TARGET_ICON = { event: CalendarDays, meeting: Users, task: CheckSquare, note: StickyNote, alarm: AlarmClock, timer: Timer } as const
+const TARGET_ICON = { event: CalendarDays, meeting: Users, task: CheckSquare, note: StickyNote, alarm: AlarmClock, timer: Timer, call: Phone } as const
 
 export function JarvisOverlay(props: {
   open: boolean
@@ -179,6 +179,30 @@ function CardView({ card, tz, h24, undoable, onUndo, onOpen, onExample }: { card
               <span className={cn('min-w-0 flex-1 truncate text-sm font-semibold', r.done && 'text-muted line-through')}>{r.title.replace(/^[☐⚑🌴]\s*/u, '')}</span>
             </li>
           ))}
+        </ul>
+      </div>
+    )
+  }
+  if (card.type === 'choices') {
+    return (
+      <div className="mt-2 overflow-hidden rounded-2xl border border-line bg-surface text-left shadow-soft">
+        <div className="border-b border-line px-4 py-2 text-xs font-bold tracking-wide text-muted uppercase">{card.title}</div>
+        <ul className="divide-y divide-line">
+          {card.rows.slice(0, 8).map((r, i) => {
+            const body = (
+              <>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.label}</span>
+                {r.detail && <span className="shrink-0 text-xs font-semibold text-muted">{r.detail}</span>}
+              </>
+            )
+            return (
+              <li key={i}>
+                {card.selectable
+                  ? <button onClick={() => onExample(`number ${i + 1}`)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2">{body}</button>
+                  : <div className="flex items-center gap-3 px-4 py-2.5">{body}</div>}
+              </li>
+            )
+          })}
         </ul>
       </div>
     )
